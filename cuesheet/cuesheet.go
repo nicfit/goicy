@@ -2,12 +2,13 @@ package cuesheet
 
 import (
 	"bufio"
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/metadata"
 	"io"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/metadata"
 )
 
 type cueEntry struct {

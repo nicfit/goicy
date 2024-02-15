@@ -1,11 +1,12 @@
 package mpeg
 
 import (
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/util"
 	"io"
 	"os"
 	"strconv"
+
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/util"
 )
 
 var srtable = [...]uint32{
@@ -386,7 +387,7 @@ func GetFramesStdin(f io.ReadCloser, framesToRead int) ([]byte, error) {
 	return buf, nil
 }
 
-// gets information about MPEG file
+// GetFileInfo returns information about MPEG file
 func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 	var mpegver, layer byte
 

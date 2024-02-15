@@ -2,34 +2,26 @@ package playlist
 
 import (
 	"errors"
-	"github.com/stunndard/goicy/config"
-	"github.com/stunndard/goicy/util"
 	"io/ioutil"
 	"math/rand"
 	"strings"
+
+	"github.com/nicfit/goicy/config"
+	"github.com/nicfit/goicy/util"
 )
 
 var playlist []string
-var idx int
+var idx = 0
 var np string
 
-func First() string {
-	if len(playlist) > 0 {
-		return playlist[0]
-	} else {
-		return ""
-	}
-}
-
 func Next() string {
-	//save_idx;
-
-	// get_next_file := pl.Strings[idx];
 	if idx > len(playlist)-1 {
 		idx = 0
 	}
 	np = playlist[idx]
+
 	Load()
+
 	if idx > len(playlist)-1 {
 		idx = 0
 	}

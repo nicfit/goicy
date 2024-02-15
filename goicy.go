@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/stunndard/goicy/config"
-	"github.com/stunndard/goicy/daemon"
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/playlist"
-	"github.com/stunndard/goicy/stream"
-	"github.com/stunndard/goicy/util"
+
+	"github.com/nicfit/goicy/config"
+	"github.com/nicfit/goicy/daemon"
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/playlist"
+	"github.com/nicfit/goicy/stream"
+	"github.com/nicfit/goicy/util"
 
 	"os"
 	"os/signal"
@@ -16,12 +17,13 @@ import (
 	"time"
 )
 
-func main() {
+func Main() int {
 
 	fmt.Println("=====================================================================")
 	fmt.Println(" goicy v" + config.Version + " -- A hz reincarnate rewritten in Go")
 	fmt.Println(" AAC/AACplus/AACplusV2 & MP1/MP2/MP3 Icecast/Shoutcast source client")
 	fmt.Println(" Copyright (C) 2006-2016 Roman Butusov <reaxis at mail dot ru>")
+	fmt.Println(" Copyright (C) 2024 Travis Shirk <travis at pobox dot com>")
 	fmt.Println("=====================================================================")
 	fmt.Println()
 
@@ -35,18 +37,16 @@ func main() {
 	}()
 
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: goicy <inifile>")
-		return
+		fmt.Printf("Usage: %s <inifile>", os.Args[0])
+		return 1
 	}
 	inifile := string(os.Args[1])
-
-	//inifile := "d:\\work\\src\\Go\\src\\github.com\\stunndard\\goicy\\tests\\goicy.ini"
 
 	logger.TermLn("Loading config...", logger.LOG_DEBUG)
 	err := config.LoadConfig(inifile)
 	if err != nil {
 		logger.TermLn(err.Error(), logger.LOG_ERROR)
-		return
+		return 1
 	}
 	logger.File("---------------------------", logger.LOG_INFO)
 	logger.File("goicy v"+config.Version+" started", logger.LOG_INFO)
@@ -69,11 +69,11 @@ func main() {
 		d, err := cntxt.Reborn()
 		if err != nil {
 			logger.File(err.Error(), logger.LOG_ERROR)
-			return
+			return 1
 		}
 		if d != nil {
 			logger.File("Parent process died", logger.LOG_INFO)
-			return
+			return 1
 		}
 		defer cntxt.Release()
 		logger.Log("Daemonized successfully", logger.LOG_INFO)
@@ -84,11 +84,11 @@ func main() {
 	if err := playlist.Load(); err != nil {
 		logger.Log("Cannot load playlist file", logger.LOG_ERROR)
 		logger.Log(err.Error(), logger.LOG_ERROR)
-		return
+		return 1
 	}
 
 	retries := 0
-	filename := playlist.First()
+	filename := playlist.Next()
 	for {
 		var err error
 		if config.Cfg.StreamType == "file" {
@@ -132,4 +132,10 @@ func main() {
 		retries = 0
 		filename = playlist.Next()
 	}
+
+	return 0
+}
+
+func main() {
+	os.Exit(Main())
 }

@@ -4,11 +4,12 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/stunndard/goicy/config"
-	"github.com/stunndard/goicy/logger"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/nicfit/goicy/config"
+	"github.com/nicfit/goicy/logger"
 )
 
 var Connected bool = false

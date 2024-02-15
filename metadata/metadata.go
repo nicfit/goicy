@@ -2,13 +2,14 @@ package metadata
 
 import (
 	"encoding/base64"
-	"github.com/go-ini/ini"
-	"github.com/stunndard/goicy/config"
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/network"
 	"net/url"
 	"os/exec"
 	"strings"
+
+	"github.com/go-ini/ini"
+	"github.com/nicfit/goicy/config"
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/network"
 )
 
 func FormatMetadata(artist, title string) string {
@@ -88,6 +89,22 @@ func GetTagsFFMPEG(filename string) error {
 
 	// send it
 	if err := SendMetadata(metadata); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Scrobble(filename string) error {
+	logger.Log("Scrobbling metadata: "+filename, logger.LOG_INFO)
+	scrobble := "./scrobble.py"
+	args := []string{filename}
+
+	cmd := exec.Command(scrobble, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		logger.Log("scrobble error: "+err.Error(), logger.LOG_ERROR)
+		logger.Log("scrobble out: "+string(out), logger.LOG_ERROR)
 		return err
 	}
 

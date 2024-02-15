@@ -9,14 +9,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/stunndard/goicy/aac"
-	"github.com/stunndard/goicy/config"
-	"github.com/stunndard/goicy/cuesheet"
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/metadata"
-	"github.com/stunndard/goicy/mpeg"
-	"github.com/stunndard/goicy/network"
-	"github.com/stunndard/goicy/util"
+	"github.com/nicfit/goicy/aac"
+	"github.com/nicfit/goicy/config"
+	"github.com/nicfit/goicy/cuesheet"
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/metadata"
+	"github.com/nicfit/goicy/mpeg"
+	"github.com/nicfit/goicy/network"
+	"github.com/nicfit/goicy/util"
 )
 
 var totalFramesSent uint64
@@ -72,6 +72,7 @@ func StreamFile(filename string) error {
 	cuefile := util.Basename(filename) + ".cue"
 	if config.Cfg.UpdateMetadata {
 		go metadata.GetTagsFFMPEG(filename)
+		go metadata.Scrobble(filename)
 		cuesheet.Load(cuefile)
 	}
 

@@ -37,7 +37,7 @@ type Config struct {
 	FFMPEGPath        string
 }
 
-const Version = "0.3"
+const Version = "0.4"
 
 var Cfg Config
 

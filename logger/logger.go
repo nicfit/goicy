@@ -2,11 +2,12 @@ package logger
 
 import (
 	"fmt"
-	"github.com/stunndard/goicy/config"
-	"github.com/stunndard/goicy/util"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/nicfit/goicy/config"
+	"github.com/nicfit/goicy/util"
 )
 
 const (
