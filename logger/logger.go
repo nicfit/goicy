@@ -17,15 +17,17 @@ func Init() error {
 	if err := level.UnmarshalText([]byte(config.Cfg.LogLevel)); err != nil {
 		return err
 	}
+	opts := &slog.HandlerOptions{Level: level}
 
 	if config.Cfg.LogFile != "" {
 		writer, err := os.OpenFile(config.Cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
-		log = slog.New(slog.NewTextHandler(writer, nil))
-	} else {
 
+		log = slog.New(slog.NewTextHandler(writer, opts))
+	} else {
+		log = slog.New(slog.NewTextHandler(os.Stderr, opts))
 	}
 
 	return nil

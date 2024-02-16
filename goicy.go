@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nicfit/goicy/config"
-	"github.com/nicfit/goicy/daemon"
 	"github.com/nicfit/goicy/logger"
 	"github.com/nicfit/goicy/playlist"
 	"github.com/nicfit/goicy/stream"
@@ -12,7 +11,6 @@ import (
 
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 )
@@ -56,33 +54,12 @@ func Main() int {
 	logger.File("goicy v"+config.Version+" started", logger.LOG_INFO)
 	logger.Log("Loaded config file: "+inifile, logger.LOG_INFO)
 
-	// daemonizing
-	if config.Cfg.IsDaemon && runtime.GOOS == "linux" {
-		logger.Log("Daemon mode, detaching from terminal...", logger.LOG_INFO)
-
-		cntxt := &daemon.Context{
-			PidFileName: config.Cfg.PidFile,
-			PidFilePerm: 0644,
-			//LogFileName: "log",
-			//LogFilePerm: 0640,
-			WorkDir: "./",
-			Umask:   027,
-			//Args:        []string{"[goicy sample]"},
+	if config.Cfg.PidFile != "" {
+		if err := os.WriteFile(config.Cfg.PidFile,
+			[]byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
+			logger.File(fmt.Sprintf("error '%s' writing PID file: %s", config.Cfg.PidFile, err), logger.LOG_ERROR)
 		}
-
-		d, err := cntxt.Reborn()
-		if err != nil {
-			logger.File(err.Error(), logger.LOG_ERROR)
-			return 1
-		}
-		if d != nil {
-			logger.File("Parent process died", logger.LOG_INFO)
-			return 1
-		}
-		defer cntxt.Release()
-		logger.Log("Daemonized successfully", logger.LOG_INFO)
 	}
-
 	defer logger.Log("goicy exiting", logger.LOG_INFO)
 
 	if err := playlist.Load(); err != nil {
