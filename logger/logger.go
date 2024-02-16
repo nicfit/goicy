@@ -1,73 +1,61 @@
 package logger
 
 import (
+	"context"
 	"fmt"
+	"github.com/nicfit/goicy/config"
+	"log/slog"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/nicfit/goicy/config"
-	"github.com/nicfit/goicy/util"
 )
+
+var log = slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+func Init() error {
+
+	level := new(slog.Level)
+	if err := level.UnmarshalText([]byte(config.Cfg.LogLevel)); err != nil {
+		return err
+	}
+
+	if config.Cfg.LogFile != "" {
+		writer, err := os.OpenFile(config.Cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
+		}
+		log = slog.New(slog.NewTextHandler(writer, nil))
+	} else {
+
+	}
+
+	return nil
+}
 
 const (
-	LOG_ERROR = iota - 1
-	LOG_INFO
-	LOG_DEBUG
+	LOG_ERROR = slog.LevelError
+	LOG_INFO  = slog.LevelInfo
+	LOG_DEBUG = slog.LevelDebug
 )
 
-func File(s string, level int) {
-	var f *os.File
-	var err error
-	if level > config.Cfg.LogLevel {
-		return
-	}
-	if util.FileExists(config.Cfg.LogFile) {
-		f, err = os.OpenFile(config.Cfg.LogFile, os.O_APPEND|os.O_WRONLY, 0666)
-		if err != nil {
-			return
-		}
-	} else {
-		f, err = os.OpenFile(config.Cfg.LogFile, os.O_CREATE|os.O_WRONLY, 0666)
-		if err != nil {
-			return
-		}
-	}
-	lvl := ""
-	switch level {
-	case LOG_ERROR:
-		lvl = "ERROR"
-	case LOG_INFO:
-		lvl = "INFO "
-	case LOG_DEBUG:
-		lvl = "DEBUG"
-	}
-	date := time.Now().Format("2006-01-02 15:04:05")
-	n, err := f.WriteString("[" + date + "] " + lvl + " " + s + "\r\n")
-	if err != nil {
-		fmt.Println(n)
-		fmt.Println(err)
-	}
-	f.Close()
+func File(s string, level slog.Level) {
+	log.Log(context.Background(), level, s)
 }
 
-func Term(s string, level int) {
-	if level > config.Cfg.LogLevel {
-		return
+func Term(s string, level slog.Level) {
+	if log.Enabled(context.Background(), level) {
+		fmt.Print("\r" + strings.Repeat(" ", 79) + "\r" + s)
 	}
-	fmt.Print("\r" + strings.Repeat(" ", 79) + "\r" + s)
 }
 
-func TermLn(s string, level int) {
-	if level > config.Cfg.LogLevel {
-		return
+func TermLn(s string, level slog.Level) {
+	if log.Enabled(context.Background(), level) {
+		fmt.Println("\r" + strings.Repeat(" ", 79) + "\r" + s)
 	}
-	fmt.Println("\r" + strings.Repeat(" ", 79) + "\r" + s)
 }
 
-// Logs both to the terminal and the log file.
+// Log writes both to the terminal and the logger.
 // Puts ln at the end of the logged string
-func Log(s string, level int) {
+func Log(s string, level slog.Level) {
 	TermLn(s, level)
 	File(s, level)
 }

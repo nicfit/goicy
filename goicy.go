@@ -43,11 +43,15 @@ func Main() int {
 	inifile := string(os.Args[1])
 
 	logger.TermLn("Loading config...", logger.LOG_DEBUG)
-	err := config.LoadConfig(inifile)
-	if err != nil {
+	if err := config.LoadConfig(inifile); err != nil {
 		logger.TermLn(err.Error(), logger.LOG_ERROR)
 		return 1
 	}
+	if err := logger.Init(); err != nil {
+		logger.TermLn(err.Error(), logger.LOG_ERROR)
+		return 1
+	}
+
 	logger.File("---------------------------", logger.LOG_INFO)
 	logger.File("goicy v"+config.Version+" started", logger.LOG_INFO)
 	logger.Log("Loaded config file: "+inifile, logger.LOG_INFO)

@@ -24,7 +24,7 @@ type Config struct {
 	NpFile            string `ini:"npfile"`
 	LogFile           string `ini:"logfile"`
 	ScriptFile        string `ini:"logfile"`
-	LogLevel          int    `ini:"loglevel"`
+	LogLevel          string `ini:"loglevel"`
 	PlayRandom        bool   `ini:"playrandom"`
 	UpdateMetadata    bool   `ini:"updatemetadata"`
 	StreamName        string `ini:"name"`
@@ -80,7 +80,7 @@ func LoadConfig(filename string) error {
 	Cfg.ScriptFile = ini.Section("misc").Key("script").Value()
 	Cfg.NpFile = ini.Section("misc").Key("npfile").Value()
 	Cfg.LogFile = ini.Section("misc").Key("logfile").Value()
-	Cfg.LogLevel, _ = ini.Section("misc").Key("loglevel").Int()
+	Cfg.LogLevel = ini.Section("misc").Key("loglevel").Value()
 	Cfg.IsDaemon, _ = ini.Section("misc").Key("daemon").Bool()
 	Cfg.PidFile = ini.Section("misc").Key("pidfile").Value()
 
@@ -88,6 +88,6 @@ func LoadConfig(filename string) error {
 }
 
 func init() {
-	Cfg.LogLevel = 1
+	Cfg.LogLevel = "info"
 	Cfg.LogFile = "goicy.log"
 }
