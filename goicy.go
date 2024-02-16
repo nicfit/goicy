@@ -35,10 +35,10 @@ func Main() int {
 	}()
 
 	if len(os.Args) < 2 {
-		fmt.Printf("Usage: %s <inifile>", os.Args[0])
+		fmt.Printf("Usage: %s <inifile>\n", os.Args[0])
 		return 1
 	}
-	inifile := string(os.Args[1])
+	inifile := os.Args[1]
 
 	logger.TermLn("Loading config...", logger.LOG_DEBUG)
 	if err := config.LoadConfig(inifile); err != nil {
