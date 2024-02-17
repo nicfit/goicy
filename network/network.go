@@ -1,6 +1,7 @@
 package network
 
 import (
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -17,7 +18,14 @@ var csock net.Conn
 
 func Connect(host string, port int) (net.Conn, error) {
 	h := host + ":" + strconv.Itoa(int(port))
-	sock, err := net.Dial("tcp", h)
+
+	var sock net.Conn
+	var err error
+	if config.Cfg.Tls {
+		sock, err = tls.Dial("tcp", h, nil)
+	} else {
+		sock, err = net.Dial("tcp", h)
+	}
 	if err != nil {
 		Connected = false
 	}

@@ -15,6 +15,7 @@ type Config struct {
 	ServerType        string `ini:"server"`
 	Host              string `ini:"host"`
 	Port              int    `ini:"port"`
+	Tls               bool   `ini:tls`
 	Mount             string `ini:"mount"`
 	ConnAttempts      int    `ini:"connectionattempts"`
 	Password          string `ini:"password"`
@@ -50,6 +51,7 @@ func LoadConfig(filename string) error {
 	Cfg.ServerType = ini.Section("server").Key("server").Value()
 	Cfg.Host = ini.Section("server").Key("host").Value()
 	Cfg.Port, _ = ini.Section("server").Key("port").Int()
+	Cfg.Tls = ini.Section("server").Key("tls").MustBool()
 	Cfg.Mount = ini.Section("server").Key("mount").Value()
 	Cfg.ConnAttempts, _ = ini.Section("server").Key("connectionattempts").Int()
 	Cfg.Password = ini.Section("server").Key("password").Value()
