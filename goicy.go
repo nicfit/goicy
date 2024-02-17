@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"os/signal"
+	"syscall"
 
 	"github.com/nicfit/goicy/config"
 	"github.com/nicfit/goicy/logger"
@@ -10,21 +14,10 @@ import (
 	"github.com/nicfit/goicy/util"
 
 	"os"
-	"os/signal"
-	"syscall"
 	"time"
 )
 
-func Main() int {
-
-	fmt.Println("=====================================================================")
-	fmt.Println(" goicy v" + config.Version + " -- A hz reincarnate rewritten in Go")
-	fmt.Println(" AAC/AACplus/AACplusV2 & MP1/MP2/MP3 Icecast/Shoutcast source client")
-	fmt.Println(" Copyright (C) 2006-2016 Roman Butusov <reaxis at mail dot ru>")
-	fmt.Println(" Copyright (C) 2024 Travis Shirk <travis at pobox dot com>")
-	fmt.Println("=====================================================================")
-	fmt.Println()
-
+func init() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -33,6 +26,18 @@ func Main() int {
 		stream.Abort = true
 		logger.Log("Aborted by user/SIGTERM", logger.LOG_INFO)
 	}()
+}
+
+func Main() int {
+	ctx := context.Background()
+
+	fmt.Println("=====================================================================")
+	fmt.Println(" goicy v" + config.Version + " -- A hz reincarnate rewritten in Go")
+	fmt.Println(" AAC/AACplus/AACplusV2 & MP1/MP2/MP3 Icecast/Shoutcast source client")
+	fmt.Println(" Copyright (C) 2006-2016 Roman Butusov <reaxis at mail dot ru>")
+	fmt.Println(" Copyright (C) 2024 Travis Shirk <travis at pobox dot com>")
+	fmt.Println("=====================================================================")
+	fmt.Println()
 
 	if len(os.Args) < 2 {
 		fmt.Printf("Usage: %s <inifile>\n", os.Args[0])
@@ -68,14 +73,27 @@ func Main() int {
 		return 1
 	}
 
-	retries := 0
 	filename := playlist.Next()
+	for !stream.Abort {
+		if err := streamFile(ctx, playlist.Next()); err != nil {
+			logger.Log(fmt.Sprintf("Failed to stream: %s", filename), logger.LOG_ERROR)
+		}
+	}
+
+	return 0
+}
+
+func streamFile(_ context.Context, filename string) error {
+	var (
+		retries       = 0
+		err     error = nil
+		ctx           = context.Background()
+	)
 	for {
-		var err error
 		if config.Cfg.StreamType == "file" {
-			err = stream.StreamFile(filename)
+			err = stream.StreamFile(ctx, filename)
 		} else {
-			err = stream.StreamFFMPEG(filename)
+			err = stream.StreamFFMPEG(ctx, filename)
 		}
 
 		if err != nil {
@@ -90,12 +108,9 @@ func Main() int {
 				logger.Log("No more retries", logger.LOG_INFO)
 				break
 			}
-			// if that was a file error
-			switch err.(type) {
-			case *util.FileError:
+			var fileError *util.FileError
+			if errors.As(err, &fileError) {
 				filename = playlist.Next()
-			default:
-
 			}
 
 			logger.Log("Retrying in 10 sec...", logger.LOG_INFO)
@@ -108,13 +123,10 @@ func Main() int {
 			if stream.Abort {
 				break
 			}
-			continue
 		}
-		retries = 0
-		filename = playlist.Next()
 	}
 
-	return 0
+	return err
 }
 
 func main() {

@@ -2,6 +2,7 @@ package stream
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"net"
 	"os"
@@ -23,7 +24,7 @@ var totalFramesSent uint64
 var totalTimeBegin time.Time
 var Abort bool
 
-func StreamFile(filename string) error {
+func StreamFile(ctx context.Context, filename string) error {
 	var (
 		br                  float64
 		spf, sr, frames, ch int
@@ -157,7 +158,7 @@ func StreamFile(filename string) error {
 	return nil
 }
 
-func StreamFFMPEG(filename string) error {
+func StreamFFMPEG(ctx context.Context, filename string) error {
 	var (
 		sock net.Conn
 		res  error
@@ -397,9 +398,10 @@ func StreamFFMPEG(filename string) error {
 
 		time.Sleep(time.Duration(time.Millisecond) * time.Duration(timePause))
 	}
-	cmd.Wait()
-	logger.Log("ffmpeg is dead. hoy!", logger.LOG_DEBUG)
+	if err := cmd.Wait(); err != nil {
+		logger.File(err.Error(), logger.LOG_ERROR)
+	}
 
-	//logger.Log(strconv.Itoa(cmd.ProcessState), logger.LOG_DEBUG)
+	logger.Log("ffmpeg is dead. hoy!", logger.LOG_DEBUG)
 	return res
 }
