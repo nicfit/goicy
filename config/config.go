@@ -35,6 +35,7 @@ type Config struct {
 	StreamPublic      bool   `ini:"public"`
 	PidFile           string
 	FFMPEGPath        string
+	Scrobble          bool
 }
 
 const Version = "0.4"
@@ -83,6 +84,8 @@ func LoadConfig(filename string) error {
 	Cfg.LogFile = ini.Section("misc").Key("logfile").Value()
 	Cfg.LogLevel = ini.Section("misc").Key("loglevel").Value()
 	Cfg.PidFile = ini.Section("misc").Key("pidfile").Value()
+
+	Cfg.Scrobble, _ = ini.Section("stream").Key("scrobble").Bool()
 
 	return nil
 }

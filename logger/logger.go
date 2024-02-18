@@ -61,3 +61,7 @@ func Log(s string, level slog.Level) {
 	TermLn(s, level)
 	File(s, level)
 }
+
+func Logf(format string, level slog.Level, args ...any) {
+	Log(fmt.Sprintf(format, args...), level)
+}

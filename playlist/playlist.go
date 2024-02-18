@@ -1,66 +1,85 @@
 package playlist
 
 import (
-	"errors"
-	"io/ioutil"
-	"math/rand"
+	"bufio"
+	"fmt"
+	"os"
 	"strings"
-
-	"github.com/nicfit/goicy/config"
-	"github.com/nicfit/goicy/util"
 )
 
-var playlist []string
-var idx = 0
-var np string
-
-func Next() string {
-	if idx > len(playlist)-1 {
-		idx = 0
-	}
-	np = playlist[idx]
-
-	Load()
-
-	if idx > len(playlist)-1 {
-		idx = 0
-	}
-	for (np == playlist[idx]) && (len(playlist) > 1) {
-		if !config.Cfg.PlayRandom {
-			idx = idx + 1
-			if idx > len(playlist)-1 {
-				idx = 0
-			}
-		} else {
-			idx = rand.Intn(len(playlist))
-		}
-	}
-	return playlist[idx]
+type Playlist interface {
+	Len() int
+	Next() (string, error)
 }
 
-func Load() error {
-	if ok := util.FileExists(config.Cfg.Playlist); !ok {
-		return errors.New("Playlist file doesn't exist")
+type Options struct {
+	RepeatList    bool
+	RepeatCurrent bool
+}
+
+type playlist struct {
+	items []string
+	iter  int
+	opts  *Options
+}
+
+func New(filename string, opts *Options) (Playlist, error) {
+	if opts == nil {
+		opts = &Options{}
+	}
+	var p = &playlist{
+		items: make([]string, 0),
+		iter:  0,
+		opts:  opts,
 	}
 
-	content, err := ioutil.ReadFile(config.Cfg.Playlist)
+	if err := loadFromFile(p, filename); err != nil {
+		return nil, fmt.Errorf("error loading playlist file: %w", err)
+	}
+
+	return p, nil
+}
+
+func loadFromFile(p *playlist, filename string) error {
+	file, err := os.Open(filename)
 	if err != nil {
 		return err
 	}
-	playlist = strings.Split(string(content), "\n")
+	defer file.Close()
 
-	i := 0
-	for i < len(playlist) {
-		playlist[i] = strings.Replace(playlist[i], "\r", "", -1)
-		if ok := util.FileExists(playlist[i]); !ok && !strings.HasPrefix(playlist[i], "http") {
-			playlist = append(playlist[:i], playlist[i+1:]...)
-			continue
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		text := strings.Trim(scanner.Text(), " \n\r\t")
+		if text != "" {
+			p.items = append(p.items, scanner.Text())
 		}
-		i += 1
 	}
-	if len(playlist) < 1 {
-		return errors.New("Error: all files in the playlist do not exist")
+	if err := scanner.Err(); err != nil {
+		p.items = nil
+		return err
+	}
+	return nil
+}
+
+func (p *playlist) Len() int {
+	return len(p.items)
+}
+
+func (p *playlist) Next() (string, error) {
+	if len(p.items) == 0 {
+		return "", fmt.Errorf("empty")
+	}
+	if p.iter >= len(p.items) {
+		if !p.opts.RepeatList {
+			return "", fmt.Errorf("eol")
+		}
+		p.iter = 0
 	}
 
-	return nil
+	// FIXME: needs a rethink on iter/next
+	item := p.items[p.iter]
+	if !p.opts.RepeatCurrent {
+		p.iter++
+	}
+	return item, nil
 }

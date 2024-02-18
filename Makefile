@@ -4,4 +4,7 @@ build:
 clean:
 	-rm goicy
 
-all: clean build
+test:
+	go test ./...
+
+all: clean build test

@@ -72,7 +72,8 @@ func ConnectServer(host string, port int, br float64, sr, ch int) (net.Conn, err
 	if config.Cfg.ServerType == "shoutcast" {
 		port++
 	}
-	logger.Log("Connecting to "+config.Cfg.ServerType+" at "+host+":"+strconv.Itoa(port)+"...", logger.LOG_DEBUG)
+	logger.Logf("Connecting to %s at %s:%d [TLS=%v]...", logger.LOG_INFO,
+		config.Cfg.ServerType, host, port, config.Cfg.Tls)
 	sock, err := Connect(host, port)
 
 	if err != nil {
@@ -80,7 +81,6 @@ func ConnectServer(host string, port int, br float64, sr, ch int) (net.Conn, err
 		return sock, err
 	}
 
-	//fmt.Println("connected ok")
 	time.Sleep(time.Second)
 
 	headers := ""

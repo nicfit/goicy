@@ -67,15 +67,20 @@ func Main() int {
 	}
 	defer logger.Log("goicy exiting", logger.LOG_INFO)
 
-	if err := playlist.Load(); err != nil {
+	// FIXME: random
+	active_playlist, err := playlist.New(config.Cfg.Playlist, &playlist.Options{})
+	if err != nil {
 		logger.Log("Cannot load playlist file", logger.LOG_ERROR)
 		logger.Log(err.Error(), logger.LOG_ERROR)
 		return 1
 	}
 
-	filename := playlist.Next()
 	for !stream.Abort {
-		if err := streamFile(ctx, playlist.Next()); err != nil {
+		filename, err := active_playlist.Next()
+		if err != nil {
+			// FIXME: handle eol, empty
+		}
+		if err := streamFile(ctx, filename); err != nil {
 			logger.Log(fmt.Sprintf("Failed to stream: %s", filename), logger.LOG_ERROR)
 		}
 	}
@@ -89,6 +94,7 @@ func streamFile(_ context.Context, filename string) error {
 		err     error = nil
 		ctx           = context.Background()
 	)
+	logger.Log("streamFile: "+filename, logger.LOG_DEBUG)
 	for {
 		if config.Cfg.StreamType == "file" {
 			err = stream.StreamFile(ctx, filename)
@@ -96,33 +102,36 @@ func streamFile(_ context.Context, filename string) error {
 			err = stream.StreamFFMPEG(ctx, filename)
 		}
 
-		if err != nil {
-			// if aborted break immediately
+		if err == nil {
+			return nil
+		}
+
+		// if aborted break immediately
+		if stream.Abort {
+			break
+		}
+		retries++
+		logger.Log("Error streaming: "+err.Error(), logger.LOG_ERROR)
+
+		if retries == config.Cfg.ConnAttempts {
+			logger.Log("No more retries", logger.LOG_INFO)
+			break
+		}
+		var fileError *util.FileError
+		if errors.As(err, &fileError) {
+			// Source file error, return without retry
+			return err
+		}
+
+		logger.Log("Retrying in 10 sec...", logger.LOG_INFO)
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Second * 1)
 			if stream.Abort {
 				break
 			}
-			retries++
-			logger.Log("Error streaming: "+err.Error(), logger.LOG_ERROR)
-
-			if retries == config.Cfg.ConnAttempts {
-				logger.Log("No more retries", logger.LOG_INFO)
-				break
-			}
-			var fileError *util.FileError
-			if errors.As(err, &fileError) {
-				filename = playlist.Next()
-			}
-
-			logger.Log("Retrying in 10 sec...", logger.LOG_INFO)
-			for i := 0; i < 10; i++ {
-				time.Sleep(time.Second * 1)
-				if stream.Abort {
-					break
-				}
-			}
-			if stream.Abort {
-				break
-			}
+		}
+		if stream.Abort {
+			break
 		}
 	}
 

@@ -73,7 +73,9 @@ func StreamFile(ctx context.Context, filename string) error {
 	cuefile := util.Basename(filename) + ".cue"
 	if config.Cfg.UpdateMetadata {
 		go metadata.GetTagsFFMPEG(filename)
-		go metadata.Scrobble(filename)
+		if config.Cfg.Scrobble {
+			go metadata.Scrobble(filename)
+		}
 		cuesheet.Load(cuefile)
 	}
 
