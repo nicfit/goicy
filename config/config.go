@@ -1,93 +1,100 @@
 package config
 
 import (
-	"github.com/go-ini/ini"
+	"errors"
+	"fmt"
+	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	StreamType        string `ini:"streamtype"`
-	StreamFormat      string `ini:"format"`
-	StreamReencode    bool   `ini:"reencode"`
-	StreamBitrate     int    `ini:"bitrate"`
-	StreamChannels    int    `ini:"channels"`
-	StreamSamplerate  int    `ini:"samplerate"`
-	StreamAACProfile  string `ini:"aacprofile"`
-	ServerType        string `ini:"server"`
-	Host              string `ini:"host"`
-	Port              int    `ini:"port"`
-	Mount             string `ini:"mount"`
-	ConnAttempts      int    `ini:"connectionattempts"`
-	Password          string `ini:"password"`
-	BufferSize        int    `ini:"buffersize"`
-	Playlist          string `ini:"playlist"`
-	PlaylistType      string `ini:"playlistype"`
-	NpFile            string `ini:"npfile"`
-	LogFile           string `ini:"logfile"`
-	ScriptFile        string `ini:"logfile"`
-	LogLevel          int    `ini:"loglevel"`
-	PlayRandom        bool   `ini:"playrandom"`
-	UpdateMetadata    bool   `ini:"updatemetadata"`
-	StreamName        string `ini:"name"`
-	StreamDescription string `ini:"description"`
-	StreamURL         string `ini:"url"`
-	StreamGenre       string `ini:"genre"`
-	StreamPublic      bool   `ini:"public"`
-	IsDaemon          bool   `ini:"daemon"`
-	PidFile           string
-	FFMPEGPath        string
+	Stream   StreamConfig   `yaml:"stream"`
+	Playlist PlaylistConfig `yaml:"playlist"`
+	Logging  LoggingConfig  `yaml:"logging"`
 }
 
-const Version = "0.3"
+const Version = "0.4"
 
-var Cfg Config
-
-func LoadConfig(filename string) error {
-
-	ini, err := ini.Load(filename)
+func LoadConfig(filename string) (*Config, error) {
+	data, err := os.ReadFile(filename)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	Cfg.ServerType = ini.Section("server").Key("server").Value()
-	Cfg.Host = ini.Section("server").Key("host").Value()
-	Cfg.Port, _ = ini.Section("server").Key("port").Int()
-	Cfg.Mount = ini.Section("server").Key("mount").Value()
-	Cfg.ConnAttempts, _ = ini.Section("server").Key("connectionattempts").Int()
-	Cfg.Password = ini.Section("server").Key("password").Value()
+	config := &Config{}
+	err = yaml.Unmarshal(data, config)
+	if err != nil {
+		return nil, err
+	}
 
-	Cfg.StreamType = ini.Section("stream").Key("streamtype").Value()
-	Cfg.StreamFormat = ini.Section("stream").Key("format").Value()
-	Cfg.StreamReencode, _ = ini.Section("ffmpeg").Key("reencode").Bool()
-	Cfg.StreamBitrate, _ = ini.Section("ffmpeg").Key("bitrate").Int()
-	Cfg.StreamChannels, _ = ini.Section("ffmpeg").Key("channels").Int()
-	Cfg.StreamSamplerate, _ = ini.Section("ffmpeg").Key("samplerate").Int()
-	Cfg.StreamAACProfile = ini.Section("ffmpeg").Key("aacprofile").Value()
-	Cfg.FFMPEGPath = ini.Section("ffmpeg").Key("ffmpeg").Value()
-
-	Cfg.StreamName = ini.Section("stream").Key("name").Value()
-	Cfg.StreamDescription = ini.Section("stream").Key("description").Value()
-	Cfg.StreamURL = ini.Section("stream").Key("url").Value()
-	Cfg.StreamGenre = ini.Section("stream").Key("genre").Value()
-	Cfg.StreamPublic, _ = ini.Section("stream").Key("public").Bool()
-
-	Cfg.PlaylistType = ini.Section("playlist").Key("playlisttype").Value()
-	Cfg.Playlist = ini.Section("playlist").Key("playlist").Value()
-	Cfg.PlayRandom, _ = ini.Section("playlist").Key("playrandom").Bool()
-
-	Cfg.BufferSize, _ = ini.Section("misc").Key("buffersize").Int()
-	Cfg.BufferSize *= 1000
-	Cfg.UpdateMetadata, _ = ini.Section("misc").Key("updatemetadata").Bool()
-	Cfg.ScriptFile = ini.Section("misc").Key("script").Value()
-	Cfg.NpFile = ini.Section("misc").Key("npfile").Value()
-	Cfg.LogFile = ini.Section("misc").Key("logfile").Value()
-	Cfg.LogLevel, _ = ini.Section("misc").Key("loglevel").Int()
-	Cfg.IsDaemon, _ = ini.Section("misc").Key("daemon").Bool()
-	Cfg.PidFile = ini.Section("misc").Key("pidfile").Value()
-
-	return nil
+	return config, nil
 }
 
-func init() {
-	Cfg.LogLevel = 1
-	Cfg.LogFile = "goicy.log"
+type StreamConfig struct {
+	Mount          string       `yaml:"mount"`
+	Format         string       `yaml:"format"`
+	Server         ServerConfig `yaml:"server"`
+	Name           string       `yaml:"name"`
+	Desc           string       `yaml:"description"`
+	Genre          string       `yaml:"genre"`
+	Public         bool         `yaml:"public"`
+	URL            string       `yaml:"url"`
+	FFMPEG         FfmpegConfig `yaml:"ffmpeg"`
+	NumRetries     int          `yaml:"retries"`
+	BufferSize     int          `yaml:"buffer-size"`
+	UpdateMetadata bool         `yaml:"update-metadata"`
+	UserAgent      string       `yaml:"user-agent"`
+}
+
+func (cfg *StreamConfig) Validate() error {
+	errs := make([]error, 0)
+	if cfg.Server.Host == "" || cfg.Server.Port == 0 {
+		errs = append(errs, fmt.Errorf("host or port is required"))
+	}
+	if cfg.Format != "mpeg" && cfg.Format != "aac" {
+		errs = append(errs, fmt.Errorf("unsupported format: %s", cfg.Format))
+	}
+	return errors.Join(errs...)
+}
+
+type ServerConfig struct {
+	Host      string `yaml:"host"`
+	Port      int    `yaml:"port"`
+	TLS       bool   `yaml:"tls,omitempty"` // TODO
+	Shoutcast bool   `yaml:"shoutcast,omitempty"`
+	Password  string `yaml:"password,omitempty"`
+}
+
+func (cfg *ServerConfig) ServerType() string {
+	if cfg.Shoutcast {
+		return "shoutcast"
+	}
+	return "icecast"
+}
+
+type FfmpegConfig struct {
+	Enabled  bool           `yaml:"enabled"`
+	Path     string         `yaml:"path"`
+	ReEncode ReEncodeConfig `yaml:"re-encode"`
+}
+
+type ReEncodeConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	Bitrate    int    `yaml:"bitrate"`
+	Channels   int    `yaml:"channels"`
+	SampleRate int    `yaml:"sample-rate"`
+	AACProfile string `yaml:"aac-profile"`
+}
+
+type LoggingConfig struct {
+	Level string `yaml:"level"`
+	File  string `yaml:"file"`
+	PID   string `yaml:"pid"` // TODO
+}
+type PlaylistConfig struct {
+	Path    string `yaml:"path"`
+	Shuffle bool   `yaml:"shuffle"`
+	Repeat  int    `yaml:"repeat"`
+	Reverse bool   `yaml:"reverse"`
 }

@@ -2,12 +2,14 @@ package cuesheet
 
 import (
 	"bufio"
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/metadata"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/metadata"
 )
 
 type cueEntry struct {
@@ -61,13 +63,15 @@ func get_tags() (artist, title string) {
 	return artist, title
 }
 
-func Update(time uint32) {
+func Update(time uint32, metadata metadata.Metadata) {
 	if !loaded {
 		return
 	}
 	if isUpdate(time) {
 		md := metadata.FormatMetadata(get_tags())
-		go metadata.SendMetadata(md)
+		go func() {
+			_ = metadata.SendMetadata(md)
+		}()
 	}
 }
 
@@ -83,7 +87,9 @@ func Load(cuefile string) bool {
 		//fmt.Println("error opening file ", err)
 		return false
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 	r := bufio.NewReader(f)
 	for err != io.EOF {
 		entry, err = r.ReadString(0x0A) // 0x0A separator = newline
@@ -114,7 +120,7 @@ func Load(cuefile string) bool {
 	loaded = idx > 0
 	idx = 0
 	if loaded {
-		logger.Log("Loaded cuesheet: "+cuefile, logger.LOG_INFO)
+		logger.Log("Loaded cuesheet: "+cuefile, slog.LevelInfo)
 	}
 	return loaded
 }

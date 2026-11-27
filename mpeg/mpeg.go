@@ -1,11 +1,13 @@
 package mpeg
 
 import (
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/util"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
+
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/util"
 )
 
 var srtable = [...]uint32{
@@ -195,7 +197,7 @@ func getFrameSize(header []byte) int {
 func SeekTo1StFrame(f os.File) int64 {
 
 	buf := make([]byte, 100000)
-	f.ReadAt(buf, 0)
+	_, _ = f.ReadAt(buf, 0)
 
 	// skip ID3V2 at the beginning of file
 	var ID3Length int64 = 0
@@ -204,13 +206,13 @@ func SeekTo1StFrame(f os.File) int64 {
 		//minor := byte(buf[5])
 		//flags := buf[6]
 		ID3Length = ID3Length + (int64(buf[6])<<21 | int64(buf[7])<<14 | int64(buf[8])<<7 | int64(buf[9])) + 10
-		f.ReadAt(buf, ID3Length)
+		_, _ = f.ReadAt(buf, ID3Length)
 		id3 = string(buf[0:3])
 	}
 
 	pos := int64(-1)
 
-	for i := 0; i < len(buf); i++ {
+	for i := range buf {
 		if (buf[i] == 0xFF) && ((buf[i+1] & 0xE0) == 0xE0) {
 			if len(buf)-i < 10 {
 				break
@@ -224,7 +226,7 @@ func SeekTo1StFrame(f os.File) int64 {
 					mpx_header = buf[i+framelength : i+framelength+4]
 					if _, ok := isValidFrameHeader(mpx_header); ok {
 						pos = int64(i) + ID3Length
-						f.Seek(pos, 0)
+						_, _ = f.Seek(pos, 0)
 						break
 					}
 				}
@@ -235,11 +237,11 @@ func SeekTo1StFrame(f os.File) int64 {
 }
 
 func GetFrames(f os.File, framesToRead int) ([]byte, error) {
-	var framesRead, bytesRead int = 0, 0
-	var headers []byte = make([]byte, 4)
-	var headers2 []byte = make([]byte, 4)
-	var inSync bool = true
-	var numBytesToRead int = 0
+	var framesRead, bytesRead int
+	var headers = make([]byte, 4)
+	var headers2 = make([]byte, 4)
+	var inSync = true
+	var numBytesToRead int
 	var buf []byte
 	var err error
 
@@ -259,9 +261,11 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 			if inSync {
 				pos, _ := f.Seek(0, 1)
 				logger.Log("Bad MPEG frame at offset "+strconv.Itoa(int(pos-4))+
-					", resyncing...", logger.LOG_DEBUG)
+					", resyncing...", slog.LevelDebug)
 			}
-			f.Seek(-3, 1)
+			if _, err := f.Seek(-3, 1); err != nil {
+				return nil, err
+			}
 			inSync = false
 			continue
 		}
@@ -271,9 +275,11 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 			if inSync {
 				pos, _ := f.Seek(0, 1)
 				logger.Log("Bad MPEG frame at offset "+strconv.Itoa(int(pos-4))+
-					", resyncing...", logger.LOG_DEBUG)
+					", resyncing...", slog.LevelDebug)
 			}
-			f.Seek(-3, 1)
+			if _, err := f.Seek(-3, 1); err != nil {
+				return nil, err
+			}
 			inSync = false
 			continue
 		}
@@ -284,19 +290,32 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 			numBytesToRead = 0
 		}
 
-		oldpos, _ := f.Seek(0, 1)
-		br, _ := f.Seek(int64(numBytesToRead), 1)
+		oldpos, err := f.Seek(0, 1)
+		if err != nil {
+			return nil, err
+		}
+		br, err := f.Seek(int64(numBytesToRead), 1)
+		if err != nil {
+			return nil, err
+		}
 		bytesRead = int(br - oldpos)
-		bbr, _ := f.Read(headers2)
+		bbr, err := f.Read(headers2)
+		if err != nil {
+			return nil, err
+		}
 		bytesRead = bytesRead + int(bbr)
-		f.Seek(int64(-bytesRead), 1)
+		if _, err := f.Seek(int64(-bytesRead), 1); err != nil {
+			return nil, err
+		}
 		if _, ok := isValidFrameHeader(headers2); !ok {
 			if inSync {
 				pos, _ := f.Seek(0, 1)
 				logger.Log("Bad MPEG frame at offset "+strconv.Itoa(int(pos-4))+
-					", resyncing...", logger.LOG_DEBUG)
+					", resyncing...", slog.LevelDebug)
 			}
-			f.Seek(-3, 1)
+			if _, err := f.Seek(-3, 1); err != nil {
+				return nil, err
+			}
 			inSync = false
 			continue
 		}
@@ -304,7 +323,7 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 		// from now on, frame is considered valid
 		if !inSync {
 			pos, _ := f.Seek(0, 1)
-			logger.Log("Resynced at offset "+strconv.Itoa(int(pos-4)), logger.LOG_DEBUG)
+			logger.Log("Resynced at offset "+strconv.Itoa(int(pos-4)), slog.LevelDebug)
 		}
 		inSync = true
 
@@ -331,9 +350,9 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 }
 
 func GetFramesStdin(f io.ReadCloser, framesToRead int) ([]byte, error) {
-	var framesRead, bytesRead int = 0, 0
-	var headers []byte = make([]byte, 4)
-	var numBytesToRead int = 0
+	var framesRead, bytesRead int
+	var headers = make([]byte, 4)
+	var numBytesToRead int
 	var buf []byte
 	var err error
 
@@ -351,7 +370,7 @@ func GetFramesStdin(f io.ReadCloser, framesToRead int) ([]byte, error) {
 		}
 
 		if _, ok := isValidFrameHeader(headers); !ok {
-			logger.Log("Bad MPEG frame encountered", logger.LOG_DEBUG)
+			logger.Log("Bad MPEG frame encountered", slog.LevelDebug)
 		}
 
 		// copy frame header to out buffer
@@ -386,7 +405,6 @@ func GetFramesStdin(f io.ReadCloser, framesToRead int) ([]byte, error) {
 	return buf, nil
 }
 
-// gets information about MPEG file
 func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 	var mpegver, layer byte
 
@@ -404,7 +422,9 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 		return err
 	}
 
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	firstFramePos := SeekTo1StFrame(*f)
 	if firstFramePos == -1 {
@@ -413,13 +433,13 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 		return err
 	}
 
-	logger.Log("First frame found at offset: "+strconv.Itoa(int(firstFramePos)), logger.LOG_DEBUG)
+	logger.Log("First frame found at offset: "+strconv.Itoa(int(firstFramePos)), slog.LevelDebug)
 
 	// now having opened the input file, read the fixed header of the
 	// first frame, to get the audio stream's parameters:
 	header := make([]byte, 4)
 
-	var srindex byte = 0
+	var srindex byte
 	frame := 1
 
 	if n, err := f.Read(header); (n == len(header)) && (err == nil) {
@@ -471,9 +491,11 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 
 		*spf = GetSPF(header)
 
-		f.Seek(int64(firstFramePos), 0)
+		if _, err := f.Seek(int64(firstFramePos), 0); err != nil {
+			return err
+		}
 
-		var numBytesToRead int = 0
+		var numBytesToRead int
 
 		for {
 			if n, err = f.Read(header); (n < len(header)) || (err != nil) {
@@ -484,7 +506,9 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 			// get and check bitrate
 			brindex := (header[2] & 0x0F0) >> 4
 			if brindex == 0 || brindex == 0x0F {
-				f.Seek(-3, 1)
+				if _, err := f.Seek(-3, 1); err != nil {
+					return err
+				}
 				continue
 			}
 
@@ -513,7 +537,9 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 
 			framelength := getFrameSize(header)
 			if _, ok := isValidFrameHeader(header); !ok || framelength == 0 || framelength > 5000 {
-				f.Seek(-3, 1)
+				if _, err := f.Seek(-3, 1); err != nil {
+					return err
+				}
 				continue
 			} else {
 				frame = frame + 1
@@ -526,7 +552,9 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 			}
 
 			// skip raw frame data
-			f.Seek(int64(numBytesToRead), 1)
+			if _, err := f.Seek(int64(numBytesToRead), 1); err != nil {
+				return err
+			}
 		}
 	}
 	finfo, _ := f.Stat()
@@ -534,7 +562,7 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 	*frames = frame - 1
 	nsamples := *spf * *frames
 	playtime := nsamples / *sr
-	*br = float64((fsize - firstFramePos)) / float64(playtime)
+	*br = float64(fsize-firstFramePos) / float64(playtime)
 	*br = *br * 8 / 1000
 
 	var smpegver string
@@ -572,13 +600,13 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 		*ch = 1
 	}
 
-	logger.Log("spf       : "+strconv.Itoa(*spf), logger.LOG_DEBUG)
-	logger.Log("format    : "+smpegver+" "+slayer, logger.LOG_DEBUG)
-	logger.Log("frames    : "+strconv.Itoa(*frames), logger.LOG_DEBUG)
-	logger.Log("samplerate: "+strconv.Itoa(*sr)+" Hz", logger.LOG_DEBUG)
-	logger.Log("channels  : "+strconv.Itoa(*ch)+" ("+sch+")", logger.LOG_DEBUG)
-	logger.Log("playtime  : "+strconv.Itoa(int(playtime))+" sec", logger.LOG_DEBUG)
-	logger.Log("bitrate   : "+strconv.Itoa(int(*br))+" kbps (average)", logger.LOG_DEBUG)
+	logger.Log("spf       : "+strconv.Itoa(*spf), slog.LevelDebug)
+	logger.Log("format    : "+smpegver+" "+slayer, slog.LevelDebug)
+	logger.Log("frames    : "+strconv.Itoa(*frames), slog.LevelDebug)
+	logger.Log("samplerate: "+strconv.Itoa(*sr)+" Hz", slog.LevelDebug)
+	logger.Log("channels  : "+strconv.Itoa(*ch)+" ("+sch+")", slog.LevelDebug)
+	logger.Log("playtime  : "+strconv.Itoa(int(playtime))+" sec", slog.LevelDebug)
+	logger.Log("bitrate   : "+strconv.Itoa(int(*br))+" kbps (average)", slog.LevelDebug)
 
 	return nil
 

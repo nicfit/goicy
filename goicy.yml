@@ -1,0 +1,63 @@
+
+stream:
+    mount: radio
+    playlist:
+      path: allmusic.m3u
+      shuffle: true
+      repeat: 5
+    server:
+      # icecast/shoutcast host and port
+      host: crossrot.nicfit.net
+      port: 7676
+      shoutcast: false
+      tls: false
+      password: Zbk9dM~X
+    # stream name
+    name: CrossROT Radio
+    description: A Minecraft integration
+    url: "http://crossrot.nicfit.net:7676/radio"
+    genre: Exclusively Good Tunes
+    # set public to true to publish your stream in icecast/shoutcast yp directory
+    public: false
+    # mpeg or aac
+    format: "mpeg"
+    retries: 5
+    # send-ahead buffer size in seconds
+    buffer-size: 3
+    # whether to update stream metadata from ID3 tags.
+    update-metadata: true
+    user-agent: "djbotch/0.1.1"
+    ffmpeg:
+      enabled: false
+      # path to the ffmpeg executable. Can be just ffmpeg or ffmpeg.exe if ffmpeg is in PATH
+      # ffmpeg should be configured with --enable libfdk_aaac
+      path: ffmpeg
+      re-encode:
+        # whether to reencode stream with ffmpeg or not
+        # will only work if stream type is 'ffmpeg' above
+        # false = can be useful when you need to stream some ffmpeg source as is, without reencoding, for example https, icecast or any other input supported by ffmpeg
+        # if it is false, then the below parameters don't do anything and the format will be the same as the source
+        # you still need to properly set the stream format to 'mpeg' or 'aac' above
+        # true = ffmpeg will always reencode your source and stream it as the below format
+        enabled: true
+        # ffmpeg bitrate for MPEG or AAC
+        bitrate: 192000
+        # sample rate in Hz
+        sample-rate: 44100
+        # channels: 1 = mono, 2 stereo
+        channels: 2
+        # AAC profile
+        # must be 'lc', 'he', 'hev2'
+        # valid only for stream format AAC
+        aac-profile: lc
+
+logging:
+  file: server.log
+  # FIXME
+  pid: server.pid
+  level: info
+
+# TODO
+# ; nowplay temporary file. used to resume play from the same track
+# ; between subsequent goicy runs.
+# npfile = np.tmp

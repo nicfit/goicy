@@ -1,11 +1,13 @@
 package aac
 
 import (
-	"github.com/stunndard/goicy/logger"
-	"github.com/stunndard/goicy/util"
 	"io"
+	"log/slog"
 	"os"
 	"strconv"
+
+	"github.com/nicfit/goicy/logger"
+	"github.com/nicfit/goicy/util"
 )
 
 var sftable = [...]int{
@@ -61,22 +63,22 @@ func GetSR(header []byte) int {
 func SeekTo1StFrame(f os.File) int64 {
 
 	buf := make([]byte, 50000)
-	f.ReadAt(buf, 0)
+	_, _ = f.ReadAt(buf, 0)
 
 	// skip ID3V2 at the beginning of file
-	var ID3Length int64 = 0
+	var ID3Length int64
 	for id3 := string(buf[0:3]); id3 == "ID3"; {
 		//major := byte(buf[4])
 		//minor := byte(buf[5])
 		//flags := buf[6]
 		ID3Length = ID3Length + (int64(buf[6])<<21 | int64(buf[7])<<14 | int64(buf[8])<<7 | int64(buf[9])) + 10
-		f.ReadAt(buf, ID3Length)
+		_, _ = f.ReadAt(buf, ID3Length)
 		id3 = string(buf[0:3])
 	}
 
 	pos := int64(-1)
 
-	for i := 0; i < len(buf); i++ {
+	for i := range len(buf) {
 		if (buf[i] == 0xFF) && ((buf[i+1] & 0xF0) == 0xF0) {
 			if len(buf)-i < 10 {
 				break
@@ -98,7 +100,7 @@ func SeekTo1StFrame(f os.File) int64 {
 					}
 				}
 				pos = int64(i) + ID3Length
-				f.Seek(pos, 0)
+				_, _ = f.Seek(pos, 0)
 				break
 			}
 		}
@@ -108,10 +110,10 @@ func SeekTo1StFrame(f os.File) int64 {
 
 func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 
-	var framesRead, bytesRead int = 0, 0
-	var headers []byte = make([]byte, 7)
-	var inSync bool = true
-	var numBytesToRead int = 0
+	var framesRead, bytesRead int
+	var headers = make([]byte, 7)
+	var inSync = true
+	var numBytesToRead int
 	var buf []byte
 	var err error
 
@@ -132,9 +134,11 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 			if inSync {
 				pos, _ := f.Seek(0, 1)
 				logger.Log("Bad AAC frame at offset "+strconv.Itoa(int(pos-7))+
-					", resyncing...", logger.LOG_DEBUG)
+					", resyncing...", slog.LevelDebug)
 			}
-			f.Seek(-6, 1)
+			if _, err := f.Seek(-6, 1); err != nil {
+				return nil, err
+			}
 			inSync = false
 			continue
 		}
@@ -142,7 +146,7 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 		// from now on, the frame is considered valid
 		if !inSync {
 			pos, _ := f.Seek(0, 1)
-			logger.Log("Resynced at offset "+strconv.Itoa(int(pos-7)), logger.LOG_DEBUG)
+			logger.Log("Resynced at offset "+strconv.Itoa(int(pos-7)), slog.LevelDebug)
 		}
 		inSync = true
 
@@ -181,10 +185,10 @@ func GetFrames(f os.File, framesToRead int) ([]byte, error) {
 
 func GetFramesStdin(f io.ReadCloser, framesToRead int) ([]byte, error) {
 
-	var framesRead, bytesRead int = 0, 0
-	var headers []byte = make([]byte, 7)
+	var framesRead, bytesRead int
+	var headers = make([]byte, 7)
 	//var inSync bool = true
-	var numBytesToRead int = 0
+	var numBytesToRead int
 	var buf []byte
 	var err error
 
@@ -202,7 +206,7 @@ func GetFramesStdin(f io.ReadCloser, framesToRead int) ([]byte, error) {
 		}
 
 		if _, ok := isValidFrameHeader(headers); !ok {
-			logger.Log("Bad AAC frame encountered", logger.LOG_DEBUG)
+			logger.Log("Bad AAC frame encountered", slog.LevelDebug)
 		}
 
 		// copy frame header to out buffer
@@ -237,7 +241,6 @@ func GetFramesStdin(f io.ReadCloser, framesToRead int) ([]byte, error) {
 	return buf, nil
 }
 
-// gets information about AAC file
 func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 
 	if ok := util.FileExists(filename); !ok {
@@ -254,7 +257,9 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 		return err
 	}
 
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	firstFramePos := SeekTo1StFrame(*f)
 	if firstFramePos == -1 {
@@ -263,7 +268,7 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 		return err
 	}
 
-	logger.Log("First frame found at offset: "+strconv.Itoa(int(firstFramePos)), logger.LOG_DEBUG)
+	logger.Log("First frame found at offset: "+strconv.Itoa(int(firstFramePos)), slog.LevelDebug)
 
 	// now having opened the input file, read the fixed header of the
 	// first frame, to get the audio stream's parameters:
@@ -304,20 +309,25 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 			return err
 		}
 
-		f.Seek(int64(firstFramePos), 0)
+		if _, err := f.Seek(int64(firstFramePos), 0); err != nil {
+			return err
+		}
 
 		headers := make([]byte, 7)
-		var numBytesToRead int = 0
+		var numBytesToRead int
 
 		for {
 			if n, err = f.Read(headers); (n < len(headers)) || (err != nil) {
 				break
 			}
 			protection_absent := headers[1] & 0x01
-			var frame_length int = (((int(headers[3]) & 0x03) << 11) | (int(headers[4]) << 3) | ((int(headers[5]) & 0xE0) >> 5))
+			var frame_length = ((int(headers[3]) & 0x03) << 11) | (int(headers[4]) << 3) |
+				((int(headers[5]) & 0xE0) >> 5)
 
 			if _, ok := isValidFrameHeader(headers); !ok {
-				f.Seek(-6, 1)
+				if _, err := f.Seek(-6, 1); err != nil {
+					return err
+				}
 				continue
 			} else {
 				frame++
@@ -328,7 +338,9 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 				numBytesToRead = 0
 			}
 			if protection_absent == 0 {
-				f.Seek(2, 1)
+				if _, err := f.Seek(2, 1); err != nil {
+					return err
+				}
 				if numBytesToRead > 2 {
 					numBytesToRead -= 2
 				} else {
@@ -337,7 +349,9 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 			}
 
 			// skip raw frame data
-			f.Seek(int64(numBytesToRead), 1)
+			if _, err := f.Seek(int64(numBytesToRead), 1); err != nil {
+				return err
+			}
 		}
 	}
 	finfo, _ := f.Stat()
@@ -348,14 +362,14 @@ func GetFileInfo(filename string, br *float64, spf, sr, frames, ch *int) error {
 	*frames = frame - 1
 	nsamples := 1024 * *frames
 	playtime := nsamples / *sr
-	*br = float64(fsize - firstFramePos) / float64(playtime)
+	*br = float64(fsize-firstFramePos) / float64(playtime)
 	*br = *br * 8 / 1000
 
-	logger.Log("frames    : "+strconv.Itoa(*frames), logger.LOG_DEBUG)
-	logger.Log("samplerate: "+strconv.Itoa(*sr)+" Hz", logger.LOG_DEBUG)
-	logger.Log("channels  : "+strconv.Itoa(*ch), logger.LOG_DEBUG)
-	logger.Log("playtime  : "+strconv.Itoa(playtime)+" sec", logger.LOG_DEBUG)
-	logger.Log("bitrate   : "+strconv.Itoa(int(*br))+" kbps (average)", logger.LOG_DEBUG)
+	logger.Log("frames    : "+strconv.Itoa(*frames), slog.LevelDebug)
+	logger.Log("samplerate: "+strconv.Itoa(*sr)+" Hz", slog.LevelDebug)
+	logger.Log("channels  : "+strconv.Itoa(*ch), slog.LevelDebug)
+	logger.Log("playtime  : "+strconv.Itoa(playtime)+" sec", slog.LevelDebug)
+	logger.Log("bitrate   : "+strconv.Itoa(int(*br))+" kbps (average)", slog.LevelDebug)
 
 	return nil
 }

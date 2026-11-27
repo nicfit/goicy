@@ -43,7 +43,7 @@ for example here: https://sourceforge.net/projects/ffmpeg-hi/
 ## How do I install goicy?
 The `go get` command will automatically fetch all dependencies required, compile the binary and place it in your $GOPATH/bin directory.
 
-    go get github.com/stunndard/goicy
+    go get github.com/nicfit/goicy
 
 ## How do I configure it?
 Read `goicy.ini`. Tune it for your needs.
