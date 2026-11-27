@@ -55,6 +55,7 @@ func main() {
 		logger.Log("Stream exited", slog.LevelInfo)
 	case <-sigs:
 		logger.Log("Aborted by user/SIGTERM", slog.LevelInfo)
+		_stream.Stop()
 		cancel(nil)
 	}
 

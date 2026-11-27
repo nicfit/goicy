@@ -37,12 +37,12 @@ func Init(cfg config.LoggingConfig) {
 }
 
 func Log(msg string, level slog.Level, attrs ...slog.Attr) {
-	Logger.LogAttrs(nil, level, msg, attrs...)
+	Logger.LogAttrs(context.Background(), level, msg, attrs...)
 }
 
 func Error(msg string, err error, attrs ...slog.Attr) {
 	attrs = append(attrs, slog.String("err", err.Error()))
-	Logger.LogAttrs(nil, slog.LevelError, msg, attrs...)
+	Logger.LogAttrs(context.Background(), slog.LevelError, msg, attrs...)
 }
 
 func Term(s string, level slog.Level) {

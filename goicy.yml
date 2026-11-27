@@ -1,10 +1,10 @@
+playlist:
+  path: allmusic.m3u
+  shuffle: true
+  repeat: 5
 
 stream:
     mount: radio
-    playlist:
-      path: allmusic.m3u
-      shuffle: true
-      repeat: 5
     server:
       # icecast/shoutcast host and port
       host: crossrot.nicfit.net
@@ -55,7 +55,7 @@ logging:
   file: server.log
   # FIXME
   pid: server.pid
-  level: info
+  level: debug
 
 # TODO
 # ; nowplay temporary file. used to resume play from the same track

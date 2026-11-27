@@ -499,6 +499,7 @@ func (s *Player) Start(ctx context.Context) (context.Context, context.CancelCaus
 			// Check for cancellation
 			select {
 			case <-ctx.Done():
+				s.Stop()
 				err = ctx.Err()
 				logger.Error("stream cancelled", err)
 				return
@@ -518,6 +519,7 @@ func (s *Player) Start(ctx context.Context) (context.Context, context.CancelCaus
 			}
 		}
 
+		s.Stop()
 		logger.Log("Stream "+s.config.Mount+" ended", slog.LevelInfo, slog.String("err", err.Error()))
 	}()
 

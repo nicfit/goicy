@@ -96,5 +96,4 @@ type PlaylistConfig struct {
 	Path    string `yaml:"path"`
 	Shuffle bool   `yaml:"shuffle"`
 	Repeat  int    `yaml:"repeat"`
-	Reverse bool   `yaml:"reverse"`
 }
